@@ -1,0 +1,101 @@
+This project idea was to lear how to use transfer learning and how to implement fine tunning in order to improove our model.
+
+1) Download the training dataset from S3. We got car_ims wich is a folder with all the images.
+2) We code a funcion 'prepare_train_test_dataset.py' that iterate through the folder we got in (1) and split ir in test/train and en every class. 
+    The resulting directory structure should look like this:
+    data/
+    ├── car_dataset_labels.csv
+    ├── car_ims
+    │   ├── 000001.jpg
+    │   ├── ...
+    ├── car_ims_v1
+    │   ├── test
+    │   │   ├── AM General Hummer SUV 2000
+    │   │   │   ├── 000046.jpg
+    │   │   │   ├── ...
+    │   │   ├── Acura Integra Type R 2001
+    │   │   │   ├── 000451.jpg
+    │   │   │   ├── ...
+    │   ├── train
+    │   │   ├── AM General Hummer SUV 2000
+    │   │   │   ├── 000001.jpg
+    │   │   │   ├── ...
+    │   │   ├── Acura Integra Type R 2001
+    │   │   │   ├── 000405.jpg
+    │   │   │   ├── ...
+
+    This function have data_folder (str), labels (str), output_data_folder (str) as inputs values
+    
+    Library mainly used: os
+    Main idea: check if the directory exists, if it doesn't we create it (os.mkdir)   
+    Using good python practice I used with open() as blabla.
+    Now we iterate through all the rows of the cvs file and we check if its train or test and create the corresponding directory. And lastly (using the same logic) we create the oath and directory to each class.
+
+3) The next step was to code `scripts/train.py`, in order to acomplish this it was necesary to code first 'data_aug.py' and 'resnet_50.py'. 
+    
+    a) data augmentation is a function that generates new transform images from an image of our dataset. In this project we were asked to used `random_flip`, `random_rotation`, `random_zoom`. As a bonus track I also implemented `random_translation` (but when I run experiments it doesnt improove).
+
+    b) resnet_50 is our model! like every other NN it have a input layer, some layers and an output. For the inside layers we use Resnet50 that is an already trained model and we add some layers to addapt the model to our problem.
+
+4) The readme suggest that we run the jupyter notebooks first but in my case I continue coding and then run the notebooks.
+
+So the next step was to code the 'detection.py' what I inteded to do was to apply a mask to get only the classes that we care about (car o truck) then iterate while calculating and compare the areas in order to get the coordinates of the box with the biggest area.
+
+The next step was to implement 'remove_background', this function is similar to 'prepare_train_test_dataset.py' bescause we create a new directory but instead of iterating throught a cvs we iterate througth a dictionari (car_ims_v1). 
+
+Remove_background goes thorougth the directory and send the image to detection and get the coordinates of the biggest box.
+
+5) Now we got the images 'clean' I train and test again. I got an accurancy of 45%. Some improovements I can try:
+        - try sgd as optimizer.
+        - implement more data augmentation.
+        - run for more epochs (My teamates needed the server so I only run 20).
+        - use a lower dropout.
+
+Conclution: There is a lot to improove, the acurancy was highter wen I used the images as thay come than when I implement detectron2. 
+
+config used: 
+
+seed: 123
+
+data:
+    directory: "/home/app/src/data/car_ims_v1/train"
+    labels: "inferred"
+    label_mode: "categorical"
+    validation_split: 0.2
+    image_size: [224, 224]
+    batch_size: 32
+
+model:
+    weights: "imagenet"
+    input_shape: [224, 224, 3]
+    classes: 196
+    dropout_rate: 0.5
+    data_aug_layer:
+        random_rotation:
+            factor:        0.2
+        random_zoom:
+            height_factor: 0.2
+            width_factor:  0.2
+    regulizer:
+        #l1: 0.01
+        l2: 0.01
+
+compile:
+    optimizer:
+        adam:
+            learning_rate: 0.001
+            epsilon:       0.1
+
+    loss: "categorical_crossentropy"
+    metrics: ["accuracy"]
+
+fit:
+    epochs: 20
+    callbacks:
+        model_checkpoint:
+            filepath: "/home/app/src/experiments/exp_009/model.{epoch:02d}-{val_loss:.4f}.h5"
+            save_best_only: true
+        tensor_board:
+            log_dir: "/home/app/src/experiments/exp_009/logs"
+
+
